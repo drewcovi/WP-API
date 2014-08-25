@@ -125,6 +125,7 @@ class WP_JSON_Posts {
 	 * @param int $page Page number (1-indexed)
 	 * @return stdClass[] Collection of Post entities
 	 */
+
 	public function get_posts( $filter = array(), $context = 'view', $type = 'post', $page = 1 ) {
 		$query = array();
 
@@ -194,24 +195,38 @@ class WP_JSON_Posts {
 
 		foreach ( $posts_list as $post ) {
 			$post = get_object_vars( $post );
-
 			// Do we have permission to read this post?
 			if ( ! $this->check_read_permission( $post ) ) {
 				continue;
 			}
 
 			$response->link_header( 'item', json_url( '/posts/' . $post['ID'] ), array( 'title' => $post['post_title'] ) );
+
 			$post_data = $this->prepare_post( $post, $context );
 			if ( is_wp_error( $post_data ) ) {
 				continue;
 			}
-
+			// print_r($post);
 			$struct[] = $post_data;
 		}
 		$response->set_data( $struct );
 
 		return $response;
 	}
+
+	public function attach_child_posts(&$post) {
+    $children = array();
+    $wp_children = get_posts(array(
+      'post_type' => $post['post_type'],
+      'post_parent' => $post['ID'],
+      'order' => 'ASC',
+      'orderby' => 'menu_order'
+    ));
+    foreach ($wp_children as $wp_post) {
+      $children[] = $wp_post->ID;
+    }
+    return $children;
+  }
 
 	/**
 	 * Check if we can read a post
@@ -705,6 +720,7 @@ class WP_JSON_Posts {
 			'parent'          => (int) $post['post_parent'],
 			#'post_mime_type' => $post['post_mime_type'],
 			'link'            => get_permalink( $post['ID'] ),
+			'children' 				=> $this->attach_child_posts($post),
 		);
 
 		$post_fields_extended = array(
